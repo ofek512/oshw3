@@ -23,7 +23,7 @@ struct Server_Log {
 
     int readers_count;
     int writers_waiting;
-    int writers_active;
+    int writer_active;
 
     int sleep_time; // debug sleep time in 
 };
@@ -76,15 +76,46 @@ void destroy_log(server_log log) {
 
 // Returns dummy log content as string (stub)
 int get_log(server_log log, char** dst) {
-    // TODO: Return the full contents of the log as a dynamically allocated string
-    // This function should handle concurrent access
+    // check if there is a writer active or waiting writers
+    pthread_mutex_lock(&log->mutex);
 
-    const char* dummy = "Log is not implemented.\n";
-    int len = strlen(dummy);
-    *dst = (char*)malloc(len + 1); // Allocate for caller
-    if (*dst != NULL) {
-        strcpy(*dst, dummy);
+    while (log->writer_active || log->writers_waiting > 0) {
+        pthread_cond_wait(&log->cond_readers, &log->mutex);
     }
+
+    log->readers_count++;
+
+    pthread_mutex_unlock(&log->mutex);
+
+    int len = log->total_len;
+    *dst = malloc(len + 1); // +1 for null terminator, i guess
+
+    // if allocation failed
+    if(*dst == NULL) {
+        pthread_mutex_lock(&log->mutex);
+        log->readers_count--;
+        if (log->readers_count == 0) 
+            pthread_cond_signal(&log->cond_writers);
+        pthread_mutex_unlock(&log->mutex);
+        return 0;
+    }
+
+    // walking on linked list and copying data
+    char* ptr = *dst;
+    LogNode* current = log->head;
+    while(current != NULL) {
+        memcpy(ptr, current->data, current->data_len);
+        ptr += current->data_len;
+        current = current->next;
+    }
+    *ptr = '\0'; // null terminate
+
+    pthread_mutex_lock(&log->mutex);
+    log->readers_count--;
+    if (log->readers_count == 0) 
+        pthread_cond_signal(&log->cond_writers);
+    pthread_mutex_unlock(&log->mutex);
+
     return len;
 }
 
