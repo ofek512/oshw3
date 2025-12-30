@@ -33,15 +33,26 @@ typedef struct {
 
 // Parses command-line arguments
 void getargs(int *port, int *threads, int *queue_size, int *debug_sleep_time, int argc, char *argv[])
-{// check if debug mode flag is on, if not set it to 0.
-    if (argc < 5) {
-        fprintf(stderr, "Usage: %s <port> <threads> <queue_size> <debug_sleep_time>\n", argv[0]);
+{
+    // Require at least port, threads, queue_size
+    if (argc < 4) {
+        fprintf(stderr, "Usage: %s <port> <threads> <queue_size> [debug_sleep_time]\n", argv[0]);
         exit(1);
     }
     *port = atoi(argv[1]);
     *threads = atoi(argv[2]);
     *queue_size = atoi(argv[3]);
-    *debug_sleep_time = atoi(argv[4]);
+    
+    // debug_sleep_time is optional, default to 0 (no debug)
+    if (argc >= 5) {
+        *debug_sleep_time = atoi(argv[4]);
+        // If negative, treat as 0 (no debug)
+        if (*debug_sleep_time < 0) {
+            *debug_sleep_time = 0;
+        }
+    } else {
+        *debug_sleep_time = 0;  // Default: no debug sleep
+    }
 }
 // TODO: HW3 — Initialize thread pool and request queue
 // This server currently handles all requests in the main thread.

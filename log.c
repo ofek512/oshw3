@@ -45,7 +45,7 @@ server_log create_log(int sleep_time) {
 
     log->readers_count = 0;
     log->writers_waiting = 0;
-    log->writers_active = 0;
+    log->writer_active = 0;
 
     log->sleep_time = sleep_time;
 
@@ -121,6 +121,54 @@ int get_log(server_log log, char** dst) {
 
 // Appends a new entry to the log (no-op stub)
 void add_to_log(server_log log, const char* data, int data_len) {
-    // TODO: Append the provided data to the log
-    // This function should handle concurrent access
+    
+    pthread_mutex_lock(&log->mutex);
+    
+    log->writers_waiting++;
+    
+    while (log->readers_count > 0 || log->writer_active) {
+        pthread_cond_wait(&log->cond_writers, &log->mutex);
+    }
+    
+    log->writers_waiting--;
+    
+    log->writer_active = 1;
+    
+    if (log->sleep_time > 0) {
+        sleep(log->sleep_time);
+    }
+    
+    LogNode *new_node = malloc(sizeof(LogNode));
+    if (new_node != NULL) {
+        new_node->data = malloc(data_len + 1);
+        if (new_node->data != NULL) {
+            memcpy(new_node->data, data, data_len);
+            new_node->data[data_len] = '\0';  // Null terminate
+            new_node->data_len = data_len;
+            new_node->next = NULL;
+            
+            // Append to linked list
+            if (log->tail == NULL) {
+                // List is empty
+                log->head = new_node;
+                log->tail = new_node;
+            } else {
+                // Append to end
+                log->tail->next = new_node;
+                log->tail = new_node;
+            }
+            
+            // Update total length
+            log->total_len += data_len;
+        } else {
+            // data malloc failed, free the node
+            free(new_node);
+        }
+    }
+    
+    log->writer_active = 0;
+    
+    pthread_cond_broadcast(&log->cond_readers);
+    pthread_cond_signal(&log->cond_writers);
+    pthread_mutex_unlock(&log->mutex);
 }
