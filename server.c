@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     getargs(&port, &num_threads, &queue_size, &debug_sleep_time, argc, argv);
 
     // Create the global server log (pass debug_sleep_time for Person B to use)
-    server_log log = create_log();  // TODO: Person B will update create_log() to accept debug_sleep_time
+    server_log log = create_log(debug_sleep_time);  // TODO: Person B will update create_log() to accept debug_sleep_time
 
     // Allocate array of pthread_t for worker threads (not creating them yet!)
     pthread_t *worker_threads = malloc(num_threads * sizeof(pthread_t));
