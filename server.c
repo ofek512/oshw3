@@ -33,7 +33,7 @@ typedef struct {
 
 // Parses command-line arguments
 void getargs(int *port, int *threads, int *queue_size, int *debug_sleep_time, int argc, char *argv[])
-{
+{// check if debug mode flag is on, if not set it to 0.
     if (argc < 5) {
         fprintf(stderr, "Usage: %s <port> <threads> <queue_size> <debug_sleep_time>\n", argv[0]);
         exit(1);
@@ -96,7 +96,7 @@ void* worker_thread(void* arg){
         tm_stats.task_dispatch = dispatch_time;
         tm_stats.task_arrival = job.arrival;
 
-        requestHandle(job.connfd, tm_stats, my_stats, log); 
+        requestHandle(job.connfd, tm_stats, my_stats, log); //tm_stats important for statistics
         Close(job.connfd);
     }
 }
@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
     destroy_log(log);
 
     // Cleanup: Free worker threads array
+    //todo, check if i free the treads
     free(worker_threads);
     
     // Cleanup: Free thread stats array
@@ -203,4 +204,5 @@ int main(int argc, char *argv[])
     pthread_cond_destroy(&request_queue->not_full);
     free(request_queue->jobs);
     free(request_queue);
+    
 }
