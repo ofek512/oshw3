@@ -11,15 +11,14 @@
 // Repeatedly handles HTTP requests sent to this port number.
 // Most of the work is done within routines written in request.c
 //
-request_queue_t *request_queue;     // global request queue
-server_log log;                     // global server log
-threads_stats *thread_stats_array;  // array of per-thread statistics
 
+// Job structure for the request queue
 typedef struct {
     int connfd;               // The socket descriptor
     struct timeval arrival;   // Time the request arrived (for Stat-Req-Arrival)
 } job_t;
 
+// Request queue structure (must be defined before global declaration)
 typedef struct {
     job_t *jobs; // Circular array of jobs
     int head; // where we dequeue from
@@ -30,6 +29,11 @@ typedef struct {
     pthread_cond_t not_empty; // worker threads wait on this when the queue is empty
     pthread_cond_t not_full; // main thread waits on this when the queue is full
 } request_queue_t;
+
+// Global variables
+request_queue_t *request_queue;     // global request queue
+server_log server_log_inst;         // global server log (renamed to avoid conflict with math log())
+threads_stats *thread_stats_array;  // array of per-thread statistics
 
 // Parses command-line arguments
 void getargs(int *port, int *threads, int *queue_size, int *debug_sleep_time, int argc, char *argv[])
@@ -107,7 +111,7 @@ void* worker_thread(void* arg){
         tm_stats.task_dispatch = dispatch_time;
         tm_stats.task_arrival = job.arrival;
 
-        requestHandle(job.connfd, tm_stats, my_stats, log); //tm_stats important for statistics
+        requestHandle(job.connfd, tm_stats, my_stats, server_log_inst); //tm_stats important for statistics
         Close(job.connfd);
     }
 }
@@ -121,7 +125,7 @@ int main(int argc, char *argv[])
     getargs(&port, &num_threads, &queue_size, &debug_sleep_time, argc, argv);
 
     // Create the global server log (pass debug_sleep_time for Person B to use)
-    log = create_log(debug_sleep_time);  // TODO: Person B will update create_log() to accept debug_sleep_time
+    server_log_inst = create_log(debug_sleep_time);
 
     // Allocate array of pthread_t for worker threads (not creating them yet!)
     pthread_t *worker_threads = malloc(num_threads * sizeof(pthread_t));
@@ -197,7 +201,7 @@ int main(int argc, char *argv[])
     // ------------------------ cleanup area ------------------------ //
 
     // Clean up the server log before exiting
-    destroy_log(log);
+    destroy_log(server_log_inst);
 
     // Cleanup: Free worker threads array
     //todo, check if i free the treads
