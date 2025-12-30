@@ -125,6 +125,9 @@ void* requestPrepareStatic(char *filename, int filesize)
 
 void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_log log)
 {
+    //incrementing total_req counter even if an error occurs
+    t_stats->total_req++;
+
     int is_static = 0;
     struct stat sbuf;
     char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
@@ -157,6 +160,9 @@ void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_lo
             body_len = sbuf.st_size;
             body_content = requestPrepareStatic(filename, body_len);
 
+            //Incrementing the relevant counter on success
+            t_stats->stat_req++;
+
             // Fixed Content-Length format string and sprintf overlap
             sprintf(resp_headers, "HTTP/1.0 200 OK\r\n");
             sprintf(resp_headers + strlen(resp_headers), "Server: OS-HW3 Web Server\r\n");
@@ -167,14 +173,40 @@ void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_lo
                 requestError(fd, filename, "403", "Forbidden", "OS-HW3 Server could not run this CGI program", tm_stats, t_stats);
                 return;
             }
+            //Incrementing the relevant counter on success
+            t_stats->dynm_req++;
+
             body_content = requestPrepareDynamic(filename, cgiargs, &body_len);
 
             sprintf(resp_headers, "HTTP/1.0 200 OK\r\n");
             sprintf(resp_headers + strlen(resp_headers), "Server: OS-HW3 Web Server\r\n");
         }
-    } else if (strcasecmp(method, "POST") == 0) {
-        body_len = get_log(log, (char**)&body_content);
 
+        //Capturing log entry time
+        gettimeofday(&tm_stats.log_enter, NULL);
+
+        //Preparing the data for the log
+        char stats_buffer[MAXLINE];
+        memset(stats_buffer, 0, MAXLINE);
+        append_stats(stats_buffer, t_stats, tm_stats);
+
+        //Writing to the shared log
+        add_to_log(log, stats_buffer, strlen(stats_buffer));
+
+        //Capturing log exit time
+        gettimeofday(&tm_stats.log_exit, NULL);
+
+    } else if (strcasecmp(method, "POST") == 0) {
+        //save log entry time
+        gettimeofday(&tm_stats.log_enter, NULL);
+        body_len = get_log(log, (char**)&body_content);
+        //save log exit time
+        gettimeofday(&tm_stats.log_exit, NULL);
+
+        //increment post_req counter only on success
+        if (body_len >= 0) {
+            t_stats->post_req++;
+        }
         sprintf(resp_headers, "HTTP/1.0 200 OK\r\n");
         sprintf(resp_headers + strlen(resp_headers), "Server: OS-HW3 Web Server\r\n");
         sprintf(resp_headers + strlen(resp_headers), "Content-Length: %d\r\n", body_len);

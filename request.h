@@ -32,5 +32,5 @@ typedef struct Time_stats {
 //   - post_req (for POST requests)
 // - These values should reflect accurate request processing for each thread and be used in response headers/logs.
 
-void requestHandle(int fd, time_stats tm_stats,  threads_stats t_stats, server_log log);
+void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_log log);
 #endif
