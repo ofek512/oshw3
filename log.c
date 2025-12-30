@@ -1,21 +1,76 @@
 #include <stdlib.h>
 #include <string.h>
+#include "segel.h"
 #include "log.h"
+
+typedef struct LogNode {
+    char* data;
+    int data_len;
+    struct LogNode* next;
+} LogNode;
 
 // Opaque struct definition
 struct Server_Log {
-    // TODO: Implement internal log storage (e.g., dynamic buffer, linked list, etc.)
+    // storage
+    LogNode* head; // first entry
+    LogNode* tail; // last entry
+    int total_len; // sum of all entries
+
+    // synchronization
+    pthread_mutex_t mutex;
+    pthread_cond_t cond_readers; //readers wait here
+    pthread_cond_t cond_writers; //writers wait here
+
+    int readers_count;
+    int writers_waiting;
+    int writers_active;
+
+    int sleep_time; // debug sleep time in 
 };
 
 // Creates a new server log instance (stub)
-server_log create_log() {
-    // TODO: Allocate and initialize internal log structure
-    return (server_log)malloc(sizeof(struct Server_Log));
+server_log create_log(int sleep_time) {
+    server_log log = malloc(sizeof(struct Server_Log));
+    if (log == NULL) {
+        return NULL;
+    }
+
+    log->head = NULL;
+    log->tail = NULL;
+    log->total_len = 0;
+
+    pthread_mutex_init(&log->mutex, NULL);
+    pthread_cond_init(&log->cond_readers, NULL);
+    pthread_cond_init(&log->cond_writers, NULL);
+
+    log->readers_count = 0;
+    log->writers_waiting = 0;
+    log->writers_active = 0;
+
+    log->sleep_time = sleep_time;
+
+    return log;
+
 }
 
 // Destroys and frees the log (stub)
 void destroy_log(server_log log) {
-    // TODO: Free all internal resources used by the log
+    if (log == NULL) {
+        return;
+    }
+
+    LogNode* current = log->head;
+    while (current != NULL) {
+        LogNode *next = current->next;
+        free(current->data);
+        free(current);
+        current = next;
+    }
+
+    pthread_mutex_destroy(&log->mutex);
+    pthread_cond_destroy(&log->cond_readers);
+    pthread_cond_destroy(&log->cond_writers);
+
     free(log);
 }
 
