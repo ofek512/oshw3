@@ -47,6 +47,16 @@ void getargs(int *port, int *threads, int *queue_size, int *debug_sleep_time, in
     *threads = atoi(argv[2]);
     *queue_size = atoi(argv[3]);
     
+    // Validate threads and queue_size are positive
+    if (*threads <= 0) {
+        fprintf(stderr, "Error: threads must be a positive number\n");
+        exit(1);
+    }
+    if (*queue_size <= 0) {
+        fprintf(stderr, "Error: queue_size must be a positive number\n");
+        exit(1);
+    }
+    
     // debug_sleep_time is optional, default to 0 (no debug)
     if (argc >= 5) {
         *debug_sleep_time = atoi(argv[4]);
