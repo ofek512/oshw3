@@ -134,16 +134,10 @@ void add_to_log(server_log log, const char* data, int data_len) {
     
     log->writer_active = 1;
     
-    // release the mutex so other Writers can enter the function
-    // and increment writers_waiting
-    pthread_mutex_unlock(&log->mutex);
-
+    // Debug sleep INSIDE critical section while holding lock (per PDF requirement)
     if (log->sleep_time > 0) {
         sleep(log->sleep_time);
     }
-
-    // Re-acquire the mutex to modify the linked list safely
-    pthread_mutex_lock(&log->mutex);
     
     LogNode *new_node = malloc(sizeof(LogNode));
     if (new_node != NULL) {

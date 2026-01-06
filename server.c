@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Failed to allocate thread stats for thread %d\n", i);
             exit(1);
         }
-        thread_stats_array[i]->id = i;           // Thread ID
+        thread_stats_array[i]->id = i + 1;       // Thread ID (1 to N per PDF)
         thread_stats_array[i]->stat_req = 0;     // Static request count
         thread_stats_array[i]->dynm_req = 0;     // Dynamic request count
         thread_stats_array[i]->post_req = 0;     // POST request count
