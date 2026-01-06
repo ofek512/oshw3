@@ -85,6 +85,11 @@ int get_log(server_log log, char** dst) {
 
     log->readers_count++;
 
+    // Debug sleep INSIDE critical section (per updated PDF requirement)
+    if (log->sleep_time > 0) {
+        sleep(log->sleep_time);
+    }
+
     pthread_mutex_unlock(&log->mutex);
 
     int len = log->total_len;
