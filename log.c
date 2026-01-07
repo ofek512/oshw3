@@ -74,9 +74,8 @@ void destroy_log(server_log log) {
     free(log);
 }
 
-// Returns dummy log content as string (stub)
-int get_log(server_log log, char** dst) {
-    // check if there is a writer active or waiting writers
+// Acquire reader lock
+void reader_lock(server_log log) {
     pthread_mutex_lock(&log->mutex);
 
     while (log->writer_active || log->writers_waiting > 0) {
@@ -91,17 +90,58 @@ int get_log(server_log log, char** dst) {
     }
 
     pthread_mutex_unlock(&log->mutex);
+}
 
+// Release reader lock
+void reader_unlock(server_log log) {
+    pthread_mutex_lock(&log->mutex);
+    log->readers_count--;
+    if (log->readers_count == 0) {
+        pthread_cond_signal(&log->cond_writers);
+    }
+    pthread_mutex_unlock(&log->mutex);
+}
+
+// Acquire writer lock
+void writer_lock(server_log log) {
+    pthread_mutex_lock(&log->mutex);
+    
+    log->writers_waiting++;
+    
+    while (log->readers_count > 0 || log->writer_active) {
+        pthread_cond_wait(&log->cond_writers, &log->mutex);
+    }
+    
+    log->writers_waiting--;
+    log->writer_active = 1;
+    
+    // Debug sleep INSIDE critical section (per updated PDF requirement)
+    if (log->sleep_time > 0) {
+        sleep(log->sleep_time);
+    }
+    
+    pthread_mutex_unlock(&log->mutex);
+}
+
+// Release writer lock
+void writer_unlock(server_log log) {
+    pthread_mutex_lock(&log->mutex);
+    log->writer_active = 0;
+    
+    // Signal writer FIRST to ensure writer priority
+    pthread_cond_signal(&log->cond_writers);
+    pthread_cond_broadcast(&log->cond_readers);
+    pthread_mutex_unlock(&log->mutex);
+}
+
+// Returns dummy log content as string (stub)
+// Must be called between reader_lock/reader_unlock
+// Must be called between reader_lock/reader_unlock
+int get_log(server_log log, char** dst) {
     int len = log->total_len;
-    *dst = malloc(len + 1); // +1 for null terminator, i guess
+    *dst = malloc(len + 1);
 
-    // if allocation failed
     if(*dst == NULL) {
-        pthread_mutex_lock(&log->mutex);
-        log->readers_count--;
-        if (log->readers_count == 0) 
-            pthread_cond_signal(&log->cond_writers);
-        pthread_mutex_unlock(&log->mutex);
         return 0;
     }
 
@@ -113,69 +153,35 @@ int get_log(server_log log, char** dst) {
         ptr += current->data_len;
         current = current->next;
     }
-    *ptr = '\0'; // null terminate
-
-    pthread_mutex_lock(&log->mutex);
-    log->readers_count--;
-    if (log->readers_count == 0) 
-        pthread_cond_signal(&log->cond_writers);
-    pthread_mutex_unlock(&log->mutex);
+    *ptr = '\0';
 
     return len;
 }
 
-// Appends a new entry to the log (no-op stub)
+// Appends a new entry to the log
+// Must be called between writer_lock/writer_unlock
 void add_to_log(server_log log, const char* data, int data_len) {
-    
-    pthread_mutex_lock(&log->mutex);
-    
-    log->writers_waiting++;
-    
-    while (log->readers_count > 0 || log->writer_active) {
-        pthread_cond_wait(&log->cond_writers, &log->mutex);
-    }
-    
-    log->writers_waiting--;
-    
-    log->writer_active = 1;
-    
-    // Debug sleep INSIDE critical section while holding lock (per PDF requirement)
-    if (log->sleep_time > 0) {
-        sleep(log->sleep_time);
-    }
-    
     LogNode *new_node = malloc(sizeof(LogNode));
     if (new_node != NULL) {
         new_node->data = malloc(data_len + 1);
         if (new_node->data != NULL) {
             memcpy(new_node->data, data, data_len);
-            new_node->data[data_len] = '\0';  // Null terminate
+            new_node->data[data_len] = '\0';
             new_node->data_len = data_len;
             new_node->next = NULL;
             
             // Append to linked list
             if (log->tail == NULL) {
-                // List is empty
                 log->head = new_node;
                 log->tail = new_node;
             } else {
-                // Append to end
                 log->tail->next = new_node;
                 log->tail = new_node;
             }
             
-            // Update total length
             log->total_len += data_len;
         } else {
-            // data malloc failed, free the node
             free(new_node);
         }
     }
-    
-    log->writer_active = 0;
-    
-    // Signal writer FIRST to ensure writer priority
-    pthread_cond_signal(&log->cond_writers);
-    pthread_cond_broadcast(&log->cond_readers);
-    pthread_mutex_unlock(&log->mutex);
 }

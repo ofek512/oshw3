@@ -182,26 +182,36 @@ void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_lo
             sprintf(resp_headers + strlen(resp_headers), "Server: OS-HW3 Web Server\r\n");
         }
 
-        //Capturing log entry time
-        gettimeofday(&tm_stats.log_enter, NULL);
-
         //Preparing the data for the log
         char stats_buffer[MAXLINE];
         memset(stats_buffer, 0, MAXLINE);
         append_stats(stats_buffer, t_stats, tm_stats);
 
+        //Capturing log arrival time (before trying to acquire lock)
+        gettimeofday(&tm_stats.log_enter, NULL);
+
+        writer_lock(log);
+        
+        //Capturing log dispatch time (after acquiring lock)
+        gettimeofday(&tm_stats.log_exit, NULL);
+
         //Writing to the shared log
         add_to_log(log, stats_buffer, strlen(stats_buffer));
-
-        //Capturing log exit time
-        gettimeofday(&tm_stats.log_exit, NULL);
+        
+        writer_unlock(log);
 
     } else if (strcasecmp(method, "POST") == 0) {
-        //save log entry time
+        //save log arrival time (before trying to acquire lock)
         gettimeofday(&tm_stats.log_enter, NULL);
-        body_len = get_log(log, (char**)&body_content);
-        //save log exit time
+        
+        reader_lock(log);
+        
+        //save log dispatch time (after acquiring lock)
         gettimeofday(&tm_stats.log_exit, NULL);
+        
+        body_len = get_log(log, (char**)&body_content);
+        
+        reader_unlock(log);
 
         //increment post_req counter only on success
         if (body_len >= 0) {

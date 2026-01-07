@@ -18,11 +18,25 @@ server_log create_log(int sleep_time);
 // Destroys and frees the log
 void destroy_log(server_log log);
 
+// Acquire reader lock (wait if writers waiting/active)
+void reader_lock(server_log log);
+
+// Release reader lock
+void reader_unlock(server_log log);
+
+// Acquire writer lock (wait if readers active or writer active)
+void writer_lock(server_log log);
+
+// Release writer lock
+void writer_unlock(server_log log);
+
 // Returns the log contents as a string (null-terminated)
 // NOTE: caller is responsible for freeing dst
+// Must be called between reader_lock/reader_unlock
 int get_log(server_log log, char** dst);
 
 // Appends a new entry to the log
+// Must be called between writer_lock/writer_unlock
 void add_to_log(server_log log, const char* data, int data_len);
 
 #endif // SERVER_LOG_H
