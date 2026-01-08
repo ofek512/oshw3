@@ -182,11 +182,6 @@ void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_lo
             sprintf(resp_headers + strlen(resp_headers), "Server: OS-HW3 Web Server\r\n");
         }
 
-        //Preparing the data for the log
-        char stats_buffer[MAXLINE];
-        memset(stats_buffer, 0, MAXLINE);
-        append_stats(stats_buffer, t_stats, tm_stats);
-
         //Capturing log arrival time (before trying to acquire lock)
         gettimeofday(&tm_stats.log_enter, NULL);
 
@@ -194,6 +189,11 @@ void requestHandle(int fd, time_stats tm_stats, threads_stats t_stats, server_lo
         
         //Capturing log dispatch time (after acquiring lock)
         gettimeofday(&tm_stats.log_exit, NULL);
+
+        //Preparing the data for the log (after all timing data is collected)
+        char stats_buffer[MAXLINE];
+        memset(stats_buffer, 0, MAXLINE);
+        append_stats(stats_buffer, t_stats, tm_stats);
 
         //Writing to the shared log
         add_to_log(log, stats_buffer, strlen(stats_buffer));
