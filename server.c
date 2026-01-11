@@ -47,6 +47,12 @@ void getargs(int *port, int *threads, int *queue_size, int *debug_sleep_time, in
     *threads = atoi(argv[2]);
     *queue_size = atoi(argv[3]);
     
+    // Validate port is in valid range (above privileged ports, below max)
+    if (*port < 1024 || *port > 65535) {
+        fprintf(stderr, "Error: port must be between 1024 and 65535\n");
+        exit(1);
+    }
+    
     // Validate threads and queue_size are positive
     if (*threads <= 0) {
         fprintf(stderr, "Error: threads must be a positive number\n");
